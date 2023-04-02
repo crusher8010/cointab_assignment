@@ -1,6 +1,7 @@
 const User = require("../Models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+let prev = null;
 
 exports.Register = (req, res) => {
     try {
@@ -32,35 +33,101 @@ exports.Register = (req, res) => {
 
 
 exports.Login = async (req, res) => {
+    const { email, password } = req.body;
+
     try {
-        const { email, password } = req.body;
+        const user = await User.find({ email });
 
-        const getUser = await User.find({ email });
+        if (prev !== user[0].email) {
+            let temp = await User.find({ email: prev });
 
-        if (getUser.length > 0) {
-            let user = getUser[0];
-            bcrypt.compare(password, getUser[0].password, (err, result) => {
-                if (result) {
-                    let token = jwt.sign({ user }, process.env.Key)
+            if (temp.length > 0 && temp[0].consecutiveAttempts < 5) {
+                temp[0].consecutiveAttempts = 0;
+                await temp[0].save();
+            }
+        }
 
-                    res.status(201).json({
-                        status: "success",
-                        user,
-                        token
-                    })
-                } else {
-                    res.status(400).json({
-                        status: "fail",
-                        message: "Wrong Credentials"
-                    })
-                }
+        prev = user[0].email;
+
+
+
+        if (!user) {
+            return res.status(401).json({
+                status: "fail",
+                message: 'Invalid email or password'
+            })
+        }
+
+        const codeMatch = await bcrypt.compare(password, user[0].password);
+
+        if (!codeMatch) {
+            user[0].consecutiveAttempts++;
+
+            await user[0].save();
+
+            if (user[0].consecutiveAttempts === 5) {
+                user[0].blocked = true;
+                user[0].blockEndTime = new Date(Date.now() + (5 * 60 * 60 + 30 * 60) * 1000)
+                await user[0].save();
+
+                return res.status(401).json({
+                    status: "fail",
+                    message: 'Your account has been blocked. Please try again after 24 hours.'
+                })
+            }
+
+            if (user[0].consecutiveAttempts > 5) {
+                return res.status(401).json({
+                    status: "fail",
+                    message: 'Your account has been blocked. Please try again after 24 hours.'
+                })
+            }
+
+            return res.status(401).json({
+                status: "fail",
+                message: 'Invalid email or password'
+            })
+        }
+
+        let diff = (new Date(Date.now()).getTime() - new Date(user[0].blockEndTime).getTime());
+        stamp = new Date(diff);
+
+        let t1 = stamp.getHours();
+        let t2 = stamp.getMinutes();
+        let t3 = stamp.getSeconds();
+
+        console.log(t1, t2, t3);
+
+        if (t2 < 2 && user[0].consecutiveAttempts >= 5) {
+
+            res.status(401).json({
+                status: "fail",
+                message: `Your account has been blocked. Please try again after ${24 - t1} hours.`
+            });
+
+        } else if (t2 >= 2) {
+            user[0].consecutiveAttempts = 0;
+            user[0].blockEndTime = null;
+            await user[0].save();
+
+            return res.status(200).json({
+                status: "success",
+                message: 'Login Successful'
+            })
+        } else {
+            user[0].consecutiveAttempts = 0;
+            await user[0].save();
+
+            return res.status(200).json({
+                status: "success",
+                message: 'Login Successful'
             })
         }
 
     } catch (err) {
-        res.status(400).json({
+        res.status(500).json({
             status: "fail",
-            "message": err.message
+            message: "Internal server error"
         })
     }
 }
