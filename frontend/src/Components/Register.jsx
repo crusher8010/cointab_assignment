@@ -1,11 +1,12 @@
 import "./Login.css";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 function Register() {
     const [det, setDet] = useState({
         fullname: "", email: "", password: ""
     });
+    const [stat, setStat] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -13,7 +14,25 @@ function Register() {
     }
 
     const handleRegister = async () => {
+        let res = await fetch("https://ruby-angry-chameleon.cyclic.app/login", {
+            method: "POST",
+            body: JSON.stringify(det),
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
+        let data = await res.json();
+        if (data.status === "success") {
+            setStat(true);
+            alert("Successfully created User");
+        } else {
+            setStat(false);
+            alert("Something Went Wrong!")
+        }
+    }
 
+    if (stat) {
+        return <Navigate to="/login" />
     }
 
     return (
@@ -31,7 +50,7 @@ function Register() {
                 <label>Password</label>
                 <input type="password" name="password" value={det.password} onChange={(e) => handleChange(e)} />
                 <button onClick={handleRegister}>Register</button>
-                <p className="logintext">Already have a account. <Link to="/">Click here to login</Link></p>
+                <p className="logintext">Already have a account. <Link to="/login">Click here to login</Link></p>
             </div>
         </div>
     );

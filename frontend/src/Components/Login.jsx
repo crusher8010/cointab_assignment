@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import "./Login.css";
 import { useState } from "react";
 
 function Login() {
     const [det, setDet] = useState({ email: "", password: "" });
+    const [stat, setStat] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -11,7 +12,7 @@ function Login() {
     }
 
     const handleLogin = async () => {
-        let res = await fetch("https://tame-bell-bottoms-calf.cyclic.app/login", {
+        let res = await fetch("https://ruby-angry-chameleon.cyclic.app/login", {
             method: "POST",
             body: JSON.stringify(det),
             headers: {
@@ -19,11 +20,20 @@ function Login() {
             }
         });
         let data = await res.json();
+
         if (data.status === "success") {
-            alert("Successfully created User");
+            localStorage.setItem("data", JSON.stringify(data.pe))
+            setStat(true);
+            alert(data.message);
         } else {
-            alert("Something Went Wrong!")
+            setStat(false);
+            console.log(data)
+            alert(data.message);
         }
+    }
+
+    if (stat) {
+        return <Navigate to="/" />
     }
 
     return (

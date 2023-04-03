@@ -49,14 +49,10 @@ exports.Login = async (req, res) => {
 
         prev = user[0].email;
 
-        let diff1 = (new Date(Date.now()).getTime() - new Date(user[0].blockEndTime).getTime());
-        stamp1 = new Date(diff1);
+        let diff1 = (new Date(user[0].blockEndTime).getTime() - new Date(Date.now()).getTime())
+        let stamp1 = diff1 / (60 * 60 * 1000)
 
-        let c1 = stamp1.getHours();
-        let c2 = stamp1.getMinutes();
-        let c3 = stamp1.getSeconds();
-
-        if (c2 >= 2 && user[0].consecutiveAttempts == 5) {
+        if (stamp1 >= 24 && user[0].consecutiveAttempts == 5) {
             user[0].consecutiveAttempts = 0;
             user[0].blockEndTime = null;
             user[0].blocked = false;
@@ -80,7 +76,7 @@ exports.Login = async (req, res) => {
 
                 if (user[0].consecutiveAttempts === 5) {
                     user[0].blocked = true;
-                    user[0].blockEndTime = new Date(Date.now() + (5 * 60 * 60 + 30 * 60) * 1000)
+                    user[0].blockEndTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
                     await user[0].save();
 
                     return res.status(401).json({
@@ -93,32 +89,21 @@ exports.Login = async (req, res) => {
                     status: "fail",
                     message: 'Invalid email or password'
                 })
-            } else {
-                return res.status(401).json({
-                    status: "fail",
-                    message: 'Your account has been blocked. Please try again after 24 hours.'
-                })
             }
-
         }
 
-        let diff = (new Date(Date.now()).getTime() - new Date(user[0].blockEndTime).getTime());
-        stamp = new Date(diff);
+        let diff = (new Date(user[0].blockEndTime).getTime() - new Date(Date.now()).getTime())
+        let stamp = diff / (60 * 60 * 1000)
 
-        let t1 = stamp.getHours();
-        let t2 = stamp.getMinutes();
-        let t3 = stamp.getSeconds();
-
-        console.log(t1, t2, t3);
-
-        if (t2 < 2 && user[0].consecutiveAttempts >= 5) {
+        if (stamp > 0 && stamp < 24 && user[0].consecutiveAttempts >= 5) {
 
             res.status(401).json({
                 status: "fail",
-                message: `Your account has been blocked. Please try again after ${24 - t1} hours.`
+                stamp,
+                message: `Your account has been blocked. Please try again after ${stamp} hours.`
             });
 
-        } else if (t2 >= 2) {
+        } else if (stamp >= 24 && user[0].consecutiveAttempts >= 5) {
             user[0].consecutiveAttempts = 0;
             user[0].blockEndTime = null;
             await user[0].save();
